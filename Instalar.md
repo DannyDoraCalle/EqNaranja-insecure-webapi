@@ -17,4 +17,5 @@ En dicha carpeta debes copiar los siguentes archivos
 
 1. En cualquier otra carpeta del servidor sube el archivo db.sql
 2. En la consola de SQL  seleccion tu base de datos
-3. Carga tu base de datos desde el script
+3. Carga tu base de datos desde el script 
+4. Agrega elementos basicos de seguridad.
