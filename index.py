@@ -137,6 +137,7 @@ def login():
 	T = getToken();
 	#file_put_contents('/tmp/log','insert into AccesoToken values('.R[0].',"'.T.'",now())');
 	with open("/tmp/log","a") as log:
+		print("==>",R)
 		log.write(f'Delete from AccesoToken where id_Usuario = "{R[0]["id"]}"\n')
 		log.write(f'insert into AccesoToken values({R[0]["id"]},"{T}",now())\n')
 	
