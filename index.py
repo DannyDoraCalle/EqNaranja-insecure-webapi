@@ -121,7 +121,7 @@ def login():
 	R = False
 	try:
 		with db.cursor() as cursor:
-			cursor.execute(f'Select id from  Usuario where uname ="{request.json["uname"]}" and password = md5("{request.json["email"]}",md5("{request.json["password"]}")');
+			cursor.execute(f'Select id from  Usuario where uname ="{request.json["uname"]}" and password = md5("{request.json["password"]}")');
 			R = cursor.fetchall()
 	except Exception as e: 
 		print(e)
