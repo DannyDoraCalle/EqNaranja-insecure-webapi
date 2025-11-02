@@ -138,14 +138,14 @@ def login():
 	#file_put_contents('/tmp/log','insert into AccesoToken values('.R[0].',"'.T.'",now())');
 	with open("/tmp/log","a") as log:
 		print("==>",R)
-		log.write(f'Delete from AccesoToken where id_Usuario = "{R[0]["id"]}"\n')
-		log.write(f'insert into AccesoToken values({R[0]["id"]},"{T}",now())\n')
+		log.write(f'Delete from AccesoToken where id_Usuario = "{R[0][0]}"\n')
+		log.write(f'insert into AccesoToken values({R[0][0]},"{T}",now())\n')
 	
 	
 	try:
 		with db.cursor() as cursor:
-			cursor.execute(f'Delete from AccesoToken where id_Usuario = "{R[0]["id"]}"');
-			cursor.execute(f'insert into AccesoToken values({R[0]["id"]},"{T}",now())');
+			cursor.execute(f'Delete from AccesoToken where id_Usuario = "{R[0][0]}"');
+			cursor.execute(f'insert into AccesoToken values({R[0][0]},"{T}",now())');
 			db.commit()
 			db.close()
 			return {"R":0,"D":T}
@@ -221,7 +221,7 @@ def Imagen():
 			cursor.execute(f'insert into Imagen values(null,"{request.json["name"]}","img/",{id_Usuario})');
 			cursor.execute('select max(id) as idImagen from Imagen where id_Usuario = '+id_Usuario);
 			R = cursor.fetchall()
-			idImagen = R[0]['idImagen'];
+			idImagen = R[0][0];
 			cursor.execute('update Imagen set ruta = "img/'+idImagen+'.'+request.json['ext']+'" where id = '+idImagen);
 			db.commit()
 			# Mover archivo a su nueva locacion
@@ -293,7 +293,7 @@ def Descargar():
 		db.close()
 		return {"R":-3}
 	
-	return static_file(R[0]['ruta'])
+	return static_file(R[0][1])
 
 if __name__ == '__main__':
     run(host='0.0.0.0', port=8080, debug=True)
