@@ -37,7 +37,7 @@ def getToken():
 	m = hashlib.md5()
 	m.update(cadena.encode())
 	Q = m.hexdigest()
-	return f":P[:20]:Q[20:]"
+	return f"{P[:20]}{Q[20:]}"
 
 """
 */ 
