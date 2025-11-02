@@ -77,7 +77,8 @@ def Registro():
 			R = cursor.lastrowid
 			db.commit()
 		db.close()
-	except: 
+	except Exception as e:
+		print(e) 
 		return {"R":-2}
 	return {"R":0,"D":R}
 
@@ -122,7 +123,8 @@ def login():
 		with db.cursor() as cursor:
 			cursor.execute(f'Select id from  Usuario where uname ="{request.json["uname"]}" and password = md5("{request.json["email"]}",md5("{request.json["password"]}")');
 			R = cursor.fetchall()
-	except: 
+	except Exception as e: 
+		print(e)
 		db.close()
 		return {"R":-2}
 	
@@ -145,7 +147,8 @@ def login():
 			db.commit()
 			db.close()
 			return {"R":0,"D":T}
-	except:
+	except Exception as e:
+		print(e)
 		db.close()
 		return {"R":-4}
 
@@ -198,7 +201,8 @@ def Imagen():
 		with db.cursor() as cursor:
 			cursor.execute(f'select id_Usuario from AccesoToken where token = "{TKN}"');
 			R = cursor.fetchall()
-	except: 
+	except Exception as e: 
+		print(e)
 		db.close()
 		return {"R":-2}
 	
@@ -221,7 +225,8 @@ def Imagen():
 			# Mover archivo a su nueva locacion
 			shutil.move('tmp/'+id_Usuario,'img/'+idImagen+'.'+request.json['ext'])
 			return {"R":0,"D":idImagen}
-	except: 
+	except Exception as e: 
+		print(e)
 		db.close()
 		return {"R":-3}
 	
@@ -268,7 +273,8 @@ def Descargar():
 		with db.cursor() as cursor:
 			cursor.execute('select id_Usuario from AccesoToken where token = "'+TKN+'"');
 			R = cursor.fetchall()
-	except: 
+	except Exception as e: 
+		print(e)
 		db.close()
 		return {"R":-2}
 		
@@ -280,7 +286,8 @@ def Descargar():
 		with db.cursor() as cursor:
 			cursor.execute('Select name,ruta from  Imagen where id = '+idImagen);
 			R = cursor.fetchall()
-	except: 
+	except Exception as e: 
+		print(e)
 		db.close()
 		return {"R":-3}
 	
