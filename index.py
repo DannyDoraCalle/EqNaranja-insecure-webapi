@@ -259,7 +259,7 @@ def Descargar():
 	if not request.json:
 		return {"R":-1}
 	######/
-	R = 'token' in request.json  and 'data' in request.json and 'id' in request.json  
+	R = 'token' in request.json and 'id' in request.json  
 	# TODO checar si estan vacio los elementos del json
 	if not R:
 		return {"R":-1}
