@@ -285,7 +285,7 @@ def Descargar():
 	
 	try:
 		with db.cursor() as cursor:
-			cursor.execute('Select name,ruta from  Imagen where id = '+idImagen);
+			cursor.execute('Select name,ruta from  Imagen where id = '+str(idImagen));
 			R = cursor.fetchall()
 	except Exception as e: 
 		print(e)
