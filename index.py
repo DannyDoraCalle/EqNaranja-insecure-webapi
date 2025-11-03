@@ -99,7 +99,7 @@ def Registro():
 """
 
 @post('/Login')
-def login():
+def Login():
 	dbcnf = loadDatabaseSettings('db.json');
 	db = mysql.connector.connect(
 		host='localhost', port = dbcnf['port'],
@@ -137,7 +137,6 @@ def login():
 	T = getToken();
 	#file_put_contents('/tmp/log','insert into AccesoToken values('.R[0].',"'.T.'",now())');
 	with open("/tmp/log","a") as log:
-		print("==>",R)
 		log.write(f'Delete from AccesoToken where id_Usuario = "{R[0][0]}"\n')
 		log.write(f'insert into AccesoToken values({R[0][0]},"{T}",now())\n')
 	
@@ -156,9 +155,9 @@ def login():
 
 """
 /*
- * Este subirimagen recibe un JSON con el siguiente formato
+ * Este subir imagen recibe un JSON con el siguiente formato
  * 
- * : 
+ * 
  * 		"token: "XXX"
  *		"name": "XXX",
  * 		"data": "XXX",
@@ -209,7 +208,7 @@ def Imagen():
 		return {"R":-2}
 	
 	
-	id_Usuario = R[0]['id_Usuario'];
+	id_Usuario = R[0][0];
 	with open(f'tmp/{id_Usuario}',"wb") as imagen:
 		imagen.write(base64.b64decode(request.json['data'].encode()))
 	
