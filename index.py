@@ -292,7 +292,7 @@ def Descargar():
 		db.close()
 		return {"R":-3}
 	print(Path("img").resolve(),R[0][1])
-	return static_file(R[0][1],Path("img").resolve())
+	return static_file(R[0][1],Path(".").resolve())
 
 if __name__ == '__main__':
     run(host='0.0.0.0', port=8080, debug=True)
