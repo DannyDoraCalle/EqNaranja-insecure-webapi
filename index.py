@@ -218,13 +218,13 @@ def Imagen():
 	try:
 		with db.cursor() as cursor:
 			cursor.execute(f'insert into Imagen values(null,"{request.json["name"]}","img/",{id_Usuario})');
-			cursor.execute('select max(id) as idImagen from Imagen where id_Usuario = '+id_Usuario);
+			cursor.execute('select max(id) as idImagen from Imagen where id_Usuario = '+str(id_Usuario));
 			R = cursor.fetchall()
 			idImagen = R[0][0];
-			cursor.execute('update Imagen set ruta = "img/'+idImagen+'.'+request.json['ext']+'" where id = '+idImagen);
+			cursor.execute('update Imagen set ruta = "img/'+str(idImagen)+'.'+str(request.json['ext'])+'" where id = '+str(idImagen));
 			db.commit()
 			# Mover archivo a su nueva locacion
-			shutil.move('tmp/'+id_Usuario,'img/'+idImagen+'.'+request.json['ext'])
+			shutil.move('tmp/'+str(id_Usuario),'img/'+str(idImagen)+'.'+str(request.json['ext']))
 			return {"R":0,"D":idImagen}
 	except Exception as e: 
 		print(e)
