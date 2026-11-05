@@ -31,8 +31,12 @@ create table if not exists Imagen(
 )ENGINE=InnoDB;
 
 ALTER TABLE Usuario
-ADD CONSTRAINT U_U
-Unique (uname,email); 
+ADD CONSTRAINT U_UNAME
+Unique (uname);
+
+ALTER TABLE Usuario
+ADD CONSTRAINT U_EMAIL
+Unique (email);
 
 ALTER TABLE AccesoToken 
 ADD CONSTRAINT FK_AT_U
