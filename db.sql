@@ -41,3 +41,10 @@ FOREIGN KEY (id_Usuario) REFERENCES Usuario(ID);
 ALTER TABLE Imagen 
 ADD CONSTRAINT FK_I_U
 FOREIGN KEY (id_Usuario) REFERENCES Usuario(ID); 
+
+create table if not exists EnlaceDescarga(
+	llave varchar(64) primary key,
+	id_Imagen int not null,
+	expira datetime not null,
+	CONSTRAINT FK_ED_I FOREIGN KEY (id_Imagen) REFERENCES Imagen(id) ON DELETE CASCADE
+)ENGINE=InnoDB;
