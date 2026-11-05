@@ -5,9 +5,8 @@ import bcrypt
 import pyotp
 import base64
 import zlib
-from datetime import datetime
 from pathlib import Path
-from bottle import route, run, template, post, request, static_file, BaseRequest, abort
+from bottle import route, run, post, request, static_file, BaseRequest, abort
 
 # Minutos que dura un enlace de descarga
 VIGENCIA_ENLACE = 5
@@ -403,4 +402,5 @@ def VerImagen(llave):
 	return resp
 
 if __name__ == '__main__':
-    run(host='localhost', port=8080, debug=True)
+    # debug=False: los errores ya no muestran codigo ni trazas al cliente
+    run(host='localhost', port=8080, debug=False)
