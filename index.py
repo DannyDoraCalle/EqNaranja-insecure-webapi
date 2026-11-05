@@ -10,6 +10,10 @@ import zlib
 from pathlib import Path
 from bottle import route, run, post, request, static_file, BaseRequest, abort
 
+# Bloqueo por fuerza bruta: intentos fallidos permitidos en la ventana
+MAX_INTENTOS = 5
+VENTANA_BLOQUEO = 15
+
 # Minutos que dura un enlace de descarga
 VIGENCIA_ENLACE = 5
 
@@ -178,12 +182,18 @@ def Login():
 	if not R:
 		return {"R":-1}
 	
-	# TODO validar correo en json
-	# TODO Control de error de la DB
+	uname = str(request.json["uname"])[:50]
 	R = False
 	try:
 		with db.cursor() as cursor:
-			cursor.execute('Select id, password, totp_secret from  Usuario where uname = %s', (str(request.json["uname"]),))
+			# Si el usuario ya acumula demasiados fallos recientes se rechaza
+			# sin siquiera revisar la contraseña
+			cursor.execute('select count(*) from IntentoFallido where uname = %s and fecha > now() - interval %s minute',
+				(uname, VENTANA_BLOQUEO))
+			if cursor.fetchone()[0] >= MAX_INTENTOS:
+				db.close()
+				return {"R":-6}
+			cursor.execute('Select id, password, totp_secret from  Usuario where uname = %s', (uname,))
 			R = cursor.fetchall()
 	except Exception as e: 
 		print(e)
@@ -204,6 +214,12 @@ def Login():
 	if valido:
 		valido = bool(R[0][2]) and pyotp.TOTP(R[0][2]).verify(str(request.json["otp"]), valid_window=1)
 	if not valido:
+		try:
+			with db.cursor() as cursor:
+				cursor.execute('insert into IntentoFallido (uname, fecha) values(%s, now())', (uname,))
+				db.commit()
+		except Exception as e:
+			print(e)
 		db.close()
 		return {"R":-3}
 	
@@ -211,6 +227,7 @@ def Login():
 	
 	try:
 		with db.cursor() as cursor:
+			cursor.execute('delete from IntentoFallido where uname = %s', (uname,))
 			cursor.execute('Delete from AccesoToken where id_Usuario = %s', (R[0][0],))
 			cursor.execute('insert into AccesoToken values(%s,%s,now())', (R[0][0], T))
 			db.commit()
