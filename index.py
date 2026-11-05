@@ -4,10 +4,46 @@ import mysql.connector
 import bcrypt
 import pyotp
 import base64
-import shutil
+import zlib
 from datetime import datetime
 from pathlib import Path
-from bottle import route, run, template, post, request, static_file
+from bottle import route, run, template, post, request, static_file, BaseRequest
+
+# Tamaño maximo de la imagen ya descomprimida
+MAX_IMAGEN = 5 * 1024 * 1024
+# Bottle rechaza cuerpos de mas de 100 KB por defecto; se permite lo
+# necesario para una imagen comprimida y codificada en base64
+BaseRequest.MEMFILE_MAX = 8 * 1024 * 1024
+
+# Lista blanca: extension permitida -> firmas (magic bytes) validas
+FIRMAS = {
+	"png":  [b"\x89PNG\r\n\x1a\n"],
+	"jpg":  [b"\xff\xd8\xff"],
+	"jpeg": [b"\xff\xd8\xff"],
+	"gif":  [b"GIF87a", b"GIF89a"],
+	"webp": [b"RIFF"],
+}
+
+def decodificarImagen(data, ext):
+	"""data = base64( gzip( bytes de la imagen ) ). Regresa los bytes o None"""
+	if not isinstance(data, str) or ext not in FIRMAS:
+		return None
+	try:
+		comprimido = base64.b64decode(data, validate=True)
+		# 16 + MAX_WBITS = formato gzip. Se limita la salida para evitar
+		# "bombas" gzip que se expanden a gigas al descomprimirse
+		d = zlib.decompressobj(16 + zlib.MAX_WBITS)
+		datos = d.decompress(comprimido, MAX_IMAGEN + 1)
+	except (ValueError, zlib.error):
+		return None
+	if not d.eof or d.unconsumed_tail or len(datos) > MAX_IMAGEN or not datos:
+		return None
+	# El contenido real debe coincidir con la extension declarada
+	if not any(datos.startswith(f) for f in FIRMAS[ext]):
+		return None
+	if ext == "webp" and datos[8:12] != b"WEBP":
+		return None
+	return datos
 
 
 
@@ -183,8 +219,8 @@ def Login():
  * 
  * 		"token: "XXX"
  *		"name": "XXX",
- * 		"data": "XXX",
- * 		"ext": "PNG"
+ * 		"data": "XXX",   base64 de la imagen comprimida con gzip
+ * 		"ext": "png"     png, jpg, jpeg, gif o webp
  * 
  * 
  * Debe retornar codigo de estado
@@ -193,9 +229,6 @@ def Login():
 @post('/Imagen')
 def Imagen():
 	#Directorio
-	tmp = Path('tmp')
-	if not tmp.exists():
-		tmp.mkdir()
 	img = Path('img')
 	if not img.exists():
 		img.mkdir()
@@ -205,8 +238,11 @@ def Imagen():
 		return {"R":-1}
 	######/
 	R = 'name' in request.json  and 'data' in request.json and 'ext' in request.json  and 'token' in request.json
-	# TODO checar si estan vacio los elementos del json
 	if not R:
+		return {"R":-1}
+	nombre = str(request.json['name']).strip()[:250]
+	ext = str(request.json['ext']).strip().lower()
+	if not nombre:
 		return {"R":-1}
 	
 	dbcnf = loadDatabaseSettings('db.json');
@@ -230,22 +266,27 @@ def Imagen():
 		db.close()
 		return {"R":-4}
 	
-	with open(f'tmp/{id_Usuario}',"wb") as imagen:
-		imagen.write(base64.b64decode(request.json['data'].encode()))
+	datos = decodificarImagen(request.json['data'], ext)
+	if datos is None:
+		db.close()
+		return {"R":-5}
 	
-	############################
-	############################
+	# Nombre de archivo aleatorio generado por el servidor; el usuario
+	# ya no controla ninguna parte de la ruta
+	ruta = 'img/' + secrets.token_hex(16) + '.' + ext
+	with open(ruta, "wb") as imagen:
+		imagen.write(datos)
+	
 	# Guardar info del archivo en la base de datos
 	try:
 		with db.cursor() as cursor:
-			cursor.execute('insert into Imagen values(null,%s,"img/",%s)', (request.json["name"], id_Usuario))
+			cursor.execute('insert into Imagen values(null,%s,%s,%s)', (nombre, ruta, id_Usuario))
 			idImagen = cursor.lastrowid
-			cursor.execute('update Imagen set ruta = %s where id = %s', ('img/'+str(idImagen)+'.'+str(request.json['ext']), idImagen))
 			db.commit()
-			# Mover archivo a su nueva locacion
-			shutil.move('tmp/'+str(id_Usuario),'img/'+str(idImagen)+'.'+str(request.json['ext']))
+			db.close()
 			return {"R":0,"D":idImagen}
 	except Exception as e: 
+		Path(ruta).unlink(missing_ok=True)
 		print(e)
 		db.close()
 		return {"R":-3}
