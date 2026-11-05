@@ -1,6 +1,5 @@
 import json
-import random
-import hashlib
+import secrets
 import mysql.connector
 import bcrypt
 import base64
@@ -26,19 +25,24 @@ function loadDatabaseSettings(pathjs):
 	return json_a;
 
 """
+# Minutos que dura un token de sesion
+VIGENCIA_TOKEN = 30
+
 def getToken():
-	tiempo = datetime.now().timestamp()
-	numero = random.random()
-	cadena = str(tiempo) + str(numero)
-	numero2 = random.random()
-	cadena2 = str(numero)+str(tiempo)+str(numero2)
-	m = hashlib.sha1()
-	m.update(cadena.encode())
-	P = m.hexdigest()
-	m = hashlib.md5()
-	m.update(cadena.encode())
-	Q = m.hexdigest()
-	return f"{P[:20]}{Q[20:]}"
+	# secrets usa el generador criptografico del sistema operativo;
+	# random no sirve para esto porque su salida se puede predecir
+	return secrets.token_urlsafe(32)
+
+def validarToken(db, TKN):
+	"""Regresa el id del usuario si el token existe y no ha expirado, si no None"""
+	if not isinstance(TKN, str) or not TKN:
+		return None
+	with db.cursor() as cursor:
+		cursor.execute(
+			'select id_Usuario from AccesoToken where token = %s and fecha > now() - interval %s minute',
+			(TKN, VIGENCIA_TOKEN))
+		R = cursor.fetchall()
+	return R[0][0] if R else None
 
 """
 */ 
@@ -148,11 +152,6 @@ def Login():
 		return {"R":-3}
 	
 	T = getToken();
-	#file_put_contents('/tmp/log','insert into AccesoToken values('.R[0].',"'.T.'",now())');
-	with open("/tmp/log","a") as log:
-		log.write(f'Delete from AccesoToken where id_Usuario = "{R[0][0]}"\n')
-		log.write(f'insert into AccesoToken values({R[0][0]},"{T}",now())\n')
-	
 	
 	try:
 		with db.cursor() as cursor:
@@ -210,18 +209,16 @@ def Imagen():
 	# Validar si el usuario esta en la base de datos
 	TKN = request.json['token'];
 	
-	R = False
 	try:
-		with db.cursor() as cursor:
-			cursor.execute('select id_Usuario from AccesoToken where token = %s', (TKN,))
-			R = cursor.fetchall()
+		id_Usuario = validarToken(db, TKN)
 	except Exception as e: 
 		print(e)
 		db.close()
 		return {"R":-2}
+	if id_Usuario is None:
+		db.close()
+		return {"R":-4}
 	
-	
-	id_Usuario = R[0][0];
 	with open(f'tmp/{id_Usuario}',"wb") as imagen:
 		imagen.write(base64.b64decode(request.json['data'].encode()))
 	
@@ -280,16 +277,16 @@ def Descargar():
 	TKN = request.json['token'];
 	idImagen = request.json['id'];
 	
-	R = False
 	try:
-		with db.cursor() as cursor:
-			cursor.execute('select id_Usuario from AccesoToken where token = %s', (TKN,))
-			R = cursor.fetchall()
+		id_Usuario = validarToken(db, TKN)
 	except Exception as e: 
 		print(e)
 		db.close()
 		return {"R":-2}
-		
+	if id_Usuario is None:
+		db.close()
+		return {"R":-4}
+
 	
 	
 	# Buscar imagen y enviarla
