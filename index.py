@@ -2,6 +2,7 @@ import json
 import secrets
 import mysql.connector
 import bcrypt
+import pyotp
 import base64
 import shutil
 from datetime import datetime
@@ -80,17 +81,23 @@ def Registro():
 		return {"R":-1}
 	# Hash con bcrypt: sal aleatoria por usuario y costo configurable
 	hashpw = bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=12)).decode()
+	# Secreto TOTP del usuario (segundo factor, RFC 6238)
+	secreto = pyotp.random_base32()
 	R = False
 	try:
 		with db.cursor() as cursor:
-			cursor.execute('insert into Usuario values(null,%s,%s,%s)', (uname, email, hashpw))
+			cursor.execute('insert into Usuario (uname, email, password, totp_secret) values(%s,%s,%s,%s)',
+				(uname, email, hashpw, secreto))
 			R = cursor.lastrowid
 			db.commit()
 		db.close()
 	except Exception as e:
 		print(e) 
 		return {"R":-2}
-	return {"R":0,"D":R}
+	# La URI se convierte en QR para Google Authenticator, Authy, etc.
+	# Solo se entrega una vez, al registrarse
+	uri = pyotp.TOTP(secreto).provisioning_uri(name=uname, issuer_name="WebAPI")
+	return {"R":0,"D":R,"totp":uri}
 
 
 
@@ -101,7 +108,8 @@ def Registro():
  * 
  * : 
  *		"uname": "XXX",
- * 		"password": "XXX"
+ * 		"password": "XXX",
+ * 		"otp": "123456"   (codigo TOTP de la app autenticadora)
  * 
  * 
  * Debe retornar un Token 
@@ -121,8 +129,7 @@ def Login():
 	if not request.json:
 		return {"R":-1}
 	######/
-	R = 'uname' in request.json  and 'password' in request.json
-	# TODO checar si estan vacio los elementos del json
+	R = 'uname' in request.json  and 'password' in request.json and 'otp' in request.json
 	if not R:
 		return {"R":-1}
 	
@@ -131,7 +138,7 @@ def Login():
 	R = False
 	try:
 		with db.cursor() as cursor:
-			cursor.execute('Select id, password from  Usuario where uname = %s', (str(request.json["uname"]),))
+			cursor.execute('Select id, password, totp_secret from  Usuario where uname = %s', (str(request.json["uname"]),))
 			R = cursor.fetchall()
 	except Exception as e: 
 		print(e)
@@ -147,6 +154,10 @@ def Login():
 		except ValueError:
 			# Hash viejo (MD5) u otro formato invalido
 			valido = False
+	# Segundo factor: codigo de 6 digitos de la app autenticadora.
+	# valid_window=1 tolera 30 s de desfase de reloj
+	if valido:
+		valido = bool(R[0][2]) and pyotp.TOTP(R[0][2]).verify(str(request.json["otp"]), valid_window=1)
 	if not valido:
 		db.close()
 		return {"R":-3}

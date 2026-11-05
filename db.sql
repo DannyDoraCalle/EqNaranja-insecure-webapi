@@ -12,6 +12,7 @@ create table if not exists Usuario(
 	uname varchar(50) not null,
 	email varchar(250) not null,
 	password varchar(250) not null,
+	totp_secret varchar(64) null,
 	PRIMARY KEY (id)
 )ENGINE=InnoDB;
 
