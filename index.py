@@ -73,7 +73,7 @@ def Registro():
 	R = False
 	try:
 		with db.cursor() as cursor:
-			cursor.execute(f'insert into Usuario values(null,"{request.json["uname"]}","{request.json["email"]}",md5("{request.json["password"]}"))');
+			cursor.execute('insert into Usuario values(null,%s,%s,md5(%s))', (request.json["uname"], request.json["email"], request.json["password"]))
 			R = cursor.lastrowid
 			db.commit()
 		db.close()
@@ -121,8 +121,7 @@ def Login():
 	R = False
 	try:
 		with db.cursor() as cursor:
-			print(f'Select id from  Usuario where uname ="{request.json["uname"]}" and password = md5("{request.json["password"]}")')
-			cursor.execute(f'Select id from  Usuario where uname ="{request.json["uname"]}" and password = md5("{request.json["password"]}")');
+			cursor.execute('Select id from  Usuario where uname = %s and password = md5(%s)', (request.json["uname"], request.json["password"]))
 			R = cursor.fetchall()
 	except Exception as e: 
 		print(e)
@@ -143,8 +142,8 @@ def Login():
 	
 	try:
 		with db.cursor() as cursor:
-			cursor.execute(f'Delete from AccesoToken where id_Usuario = "{R[0][0]}"');
-			cursor.execute(f'insert into AccesoToken values({R[0][0]},"{T}",now())');
+			cursor.execute('Delete from AccesoToken where id_Usuario = %s', (R[0][0],))
+			cursor.execute('insert into AccesoToken values(%s,%s,now())', (R[0][0], T))
 			db.commit()
 			db.close()
 			return {"R":0,"D":T}
@@ -200,7 +199,7 @@ def Imagen():
 	R = False
 	try:
 		with db.cursor() as cursor:
-			cursor.execute(f'select id_Usuario from AccesoToken where token = "{TKN}"');
+			cursor.execute('select id_Usuario from AccesoToken where token = %s', (TKN,))
 			R = cursor.fetchall()
 	except Exception as e: 
 		print(e)
@@ -217,11 +216,9 @@ def Imagen():
 	# Guardar info del archivo en la base de datos
 	try:
 		with db.cursor() as cursor:
-			cursor.execute(f'insert into Imagen values(null,"{request.json["name"]}","img/",{id_Usuario})');
-			cursor.execute('select max(id) as idImagen from Imagen where id_Usuario = '+str(id_Usuario));
-			R = cursor.fetchall()
-			idImagen = R[0][0];
-			cursor.execute('update Imagen set ruta = "img/'+str(idImagen)+'.'+str(request.json['ext'])+'" where id = '+str(idImagen));
+			cursor.execute('insert into Imagen values(null,%s,"img/",%s)', (request.json["name"], id_Usuario))
+			idImagen = cursor.lastrowid
+			cursor.execute('update Imagen set ruta = %s where id = %s', ('img/'+str(idImagen)+'.'+str(request.json['ext']), idImagen))
 			db.commit()
 			# Mover archivo a su nueva locacion
 			shutil.move('tmp/'+str(id_Usuario),'img/'+str(idImagen)+'.'+str(request.json['ext']))
@@ -272,7 +269,7 @@ def Descargar():
 	R = False
 	try:
 		with db.cursor() as cursor:
-			cursor.execute('select id_Usuario from AccesoToken where token = "'+TKN+'"');
+			cursor.execute('select id_Usuario from AccesoToken where token = %s', (TKN,))
 			R = cursor.fetchall()
 	except Exception as e: 
 		print(e)
@@ -285,7 +282,7 @@ def Descargar():
 	
 	try:
 		with db.cursor() as cursor:
-			cursor.execute('Select name,ruta from  Imagen where id = '+str(idImagen));
+			cursor.execute('Select name,ruta from  Imagen where id = %s', (idImagen,))
 			R = cursor.fetchall()
 	except Exception as e: 
 		print(e)
