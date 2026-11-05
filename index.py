@@ -1,4 +1,6 @@
 import json
+import os
+import sys
 import secrets
 import mysql.connector
 import bcrypt
@@ -49,6 +51,11 @@ def decodificarImagen(data, ext):
 
 
 
+# Las credenciales viven fuera del repositorio. Por defecto se lee
+# db.json de la carpeta desde donde se ejecuta la API; se puede indicar
+# otra ruta con la variable de entorno WEBAPI_DB
+RUTA_DB = os.environ.get('WEBAPI_DB', 'db.json')
+
 def loadDatabaseSettings(pathjs):
 	pathjs = Path(pathjs)
 	sjson = False
@@ -98,7 +105,7 @@ def validarToken(db, TKN):
 """
 @post('/Registro')
 def Registro():
-	dbcnf = loadDatabaseSettings('db.json');
+	dbcnf = loadDatabaseSettings(RUTA_DB);
 	db = mysql.connector.connect(
 		host='localhost', port = dbcnf['port'],
 		database = dbcnf['dbname'],
@@ -156,7 +163,7 @@ def Registro():
 
 @post('/Login')
 def Login():
-	dbcnf = loadDatabaseSettings('db.json');
+	dbcnf = loadDatabaseSettings(RUTA_DB);
 	db = mysql.connector.connect(
 		host='localhost', port = dbcnf['port'],
 		database = dbcnf['dbname'],
@@ -247,7 +254,7 @@ def Imagen():
 	if not nombre:
 		return {"R":-1}
 	
-	dbcnf = loadDatabaseSettings('db.json');
+	dbcnf = loadDatabaseSettings(RUTA_DB);
 	db = mysql.connector.connect(
 		host='localhost', port = dbcnf['port'],
 		database = dbcnf['dbname'],
@@ -309,7 +316,7 @@ def Imagen():
 
 @post('/Descargar')
 def Descargar():
-	dbcnf = loadDatabaseSettings('db.json');
+	dbcnf = loadDatabaseSettings(RUTA_DB);
 	db = mysql.connector.connect(
 		host='localhost', port = dbcnf['port'],
 		database = dbcnf['dbname'],
@@ -379,7 +386,7 @@ def Descargar():
 """
 @route('/img/<llave>')
 def VerImagen(llave):
-	dbcnf = loadDatabaseSettings('db.json');
+	dbcnf = loadDatabaseSettings(RUTA_DB);
 	db = mysql.connector.connect(
 		host='localhost', port = dbcnf['port'],
 		database = dbcnf['dbname'],
@@ -402,5 +409,7 @@ def VerImagen(llave):
 	return resp
 
 if __name__ == '__main__':
+    if not loadDatabaseSettings(RUTA_DB):
+        sys.exit(f"No se encontro {RUTA_DB}. Copia db.json.example a db.json y pon tus datos.")
     # debug=False: los errores ya no muestran codigo ni trazas al cliente
     run(host='localhost', port=8080, debug=False)
