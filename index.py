@@ -140,8 +140,16 @@ def Registro():
 			R = cursor.lastrowid
 			db.commit()
 		db.close()
+	except mysql.connector.IntegrityError as e:
+		# 1062 = llave duplicada: el uname o el email ya estan registrados
+		db.close()
+		if e.errno == 1062:
+			return {"R":-7}
+		print(e)
+		return {"R":-2}
 	except Exception as e:
 		print(e) 
+		db.close()
 		return {"R":-2}
 	# La URI se convierte en QR para Google Authenticator, Authy, etc.
 	# Solo se entrega una vez, al registrarse
