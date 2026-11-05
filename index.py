@@ -7,7 +7,10 @@ import base64
 import zlib
 from datetime import datetime
 from pathlib import Path
-from bottle import route, run, template, post, request, static_file, BaseRequest
+from bottle import route, run, template, post, request, static_file, BaseRequest, abort
+
+# Minutos que dura un enlace de descarga
+VIGENCIA_ENLACE = 5
 
 # Tamaño maximo de la imagen ya descomprimida
 MAX_IMAGEN = 5 * 1024 * 1024
@@ -300,7 +303,8 @@ def Imagen():
  * 		"id": "XXX"
  * 
  * 
- * Debe retornar un Token 
+ * Debe retornar una URL aleatoria y temporal para descargar la imagen
+ * (solo si la imagen pertenece al usuario del token)
  * */
 """
 
@@ -327,7 +331,10 @@ def Descargar():
 	# TODO validar correo en json
 	# Comprobar que el usuario sea valido
 	TKN = request.json['token'];
-	idImagen = request.json['id'];
+	try:
+		idImagen = int(request.json['id'])
+	except (TypeError, ValueError):
+		return {"R":-1}
 	
 	try:
 		id_Usuario = validarToken(db, TKN)
@@ -341,18 +348,59 @@ def Descargar():
 
 	
 	
-	# Buscar imagen y enviarla
-	
+	# Buscar la imagen SOLO entre las del usuario dueño del token
+	# y generar un enlace aleatorio que caduca
+	llave = secrets.token_urlsafe(32)
 	try:
 		with db.cursor() as cursor:
-			cursor.execute('Select name,ruta from  Imagen where id = %s', (idImagen,))
+			cursor.execute('Select id from  Imagen where id = %s and id_Usuario = %s', (idImagen, id_Usuario))
 			R = cursor.fetchall()
+			if not R:
+				db.close()
+				return {"R":-3}
+			cursor.execute('delete from EnlaceDescarga where expira < now()')
+			cursor.execute('insert into EnlaceDescarga values(%s,%s,now() + interval %s minute)',
+				(llave, idImagen, VIGENCIA_ENLACE))
+			db.commit()
+		db.close()
 	except Exception as e: 
 		print(e)
 		db.close()
-		return {"R":-3}
-	print(Path("img").resolve(),R[0][1])
-	return static_file(R[0][1],Path(".").resolve())
+		return {"R":-2}
+	# request.urlparts respeta X-Forwarded-Proto, asi que detras de
+	# Nginx la URL sale con https://
+	base = request.urlparts.scheme + "://" + request.urlparts.netloc
+	return {"R":0,"D":f"{base}/img/{llave}","expira_min":VIGENCIA_ENLACE}
+
+"""
+/*
+ * GET /img/<llave>
+ * Entrega la imagen si el enlace existe y no ha caducado
+ * */
+"""
+@route('/img/<llave>')
+def VerImagen(llave):
+	dbcnf = loadDatabaseSettings('db.json');
+	db = mysql.connector.connect(
+		host='localhost', port = dbcnf['port'],
+		database = dbcnf['dbname'],
+		user = dbcnf['user'],
+		password = dbcnf['password']
+	)
+	try:
+		with db.cursor() as cursor:
+			cursor.execute('select i.ruta from EnlaceDescarga e join Imagen i on i.id = e.id_Imagen '
+				'where e.llave = %s and e.expira > now()', (llave,))
+			R = cursor.fetchall()
+	finally:
+		db.close()
+	if not R:
+		abort(404, "Enlace inexistente o caducado")
+	# root fija la carpeta img/: static_file no permite salir de ella
+	resp = static_file(Path(R[0][0]).name, root=str(Path("img").resolve()))
+	# Evita que el navegador "adivine" otro tipo de contenido
+	resp.set_header("X-Content-Type-Options", "nosniff")
+	return resp
 
 if __name__ == '__main__':
     run(host='localhost', port=8080, debug=True)
