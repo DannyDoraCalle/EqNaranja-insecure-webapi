@@ -48,3 +48,10 @@ create table if not exists EnlaceDescarga(
 	expira datetime not null,
 	CONSTRAINT FK_ED_I FOREIGN KEY (id_Imagen) REFERENCES Imagen(id) ON DELETE CASCADE
 )ENGINE=InnoDB;
+
+create table if not exists IntentoFallido(
+	id int AUTO_INCREMENT primary key,
+	uname varchar(50) not null,
+	fecha datetime not null,
+	index IX_IF_U (uname, fecha)
+)ENGINE=InnoDB;
