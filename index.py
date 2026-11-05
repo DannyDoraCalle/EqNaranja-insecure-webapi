@@ -2,6 +2,7 @@ import json
 import random
 import hashlib
 import mysql.connector
+import bcrypt
 import base64
 import shutil
 from datetime import datetime
@@ -65,15 +66,20 @@ def Registro():
 	if not request.json:
 		return {"R":-1}
 	R = 'uname' in request.json and 'email' in request.json and 'password' in request.json
-	# TODO checar si estan vacio los elementos del json
 	if not R:
 		return {"R":-1}
-	# TODO validar correo en json
-	# TODO Control de error de la DB
+	uname = str(request.json["uname"]).strip()
+	email = str(request.json["email"]).strip().lower()
+	password = str(request.json["password"])
+	# bcrypt solo usa los primeros 72 bytes; se exige minimo 8 caracteres
+	if not uname or "@" not in email or len(password) < 8 or len(password.encode()) > 72:
+		return {"R":-1}
+	# Hash con bcrypt: sal aleatoria por usuario y costo configurable
+	hashpw = bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=12)).decode()
 	R = False
 	try:
 		with db.cursor() as cursor:
-			cursor.execute('insert into Usuario values(null,%s,%s,md5(%s))', (request.json["uname"], request.json["email"], request.json["password"]))
+			cursor.execute('insert into Usuario values(null,%s,%s,%s)', (uname, email, hashpw))
 			R = cursor.lastrowid
 			db.commit()
 		db.close()
@@ -121,7 +127,7 @@ def Login():
 	R = False
 	try:
 		with db.cursor() as cursor:
-			cursor.execute('Select id from  Usuario where uname = %s and password = md5(%s)', (request.json["uname"], request.json["password"]))
+			cursor.execute('Select id, password from  Usuario where uname = %s', (str(request.json["uname"]),))
 			R = cursor.fetchall()
 	except Exception as e: 
 		print(e)
@@ -129,7 +135,15 @@ def Login():
 		return {"R":-2}
 	
 	
-	if not R:
+	# Comparar la contraseña contra el hash bcrypt guardado
+	valido = False
+	if R:
+		try:
+			valido = bcrypt.checkpw(str(request.json["password"]).encode(), R[0][1].encode())
+		except ValueError:
+			# Hash viejo (MD5) u otro formato invalido
+			valido = False
+	if not valido:
 		db.close()
 		return {"R":-3}
 	
